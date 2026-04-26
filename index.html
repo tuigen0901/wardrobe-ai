@@ -732,7 +732,6 @@ async function analyze() {
     const apiKey = apiKeyInput.value.trim();
     loadingLabel.textContent = 'Gemini 2.0 Flash で解析中...';
 
-    // URLにAPIキーを含める方式（file://環境でも動作）
     const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${encodeURIComponent(apiKey)}`;
 
     let res;
@@ -741,52 +740,31 @@ async function analyze() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          contents: [{
-            parts: [
-              { inline_data: { mime_type: imgMime, data: imgBase64 } },
-              { text: prompt }
-            ]
-          }],
+          contents: [{ parts: [
+            { inline_data: { mime_type: imgMime, data: imgBase64 } },
+            { text: prompt }
+          ]}],
           generationConfig: { temperature: 0.3, maxOutputTokens: 4096 }
         })
       });
-    } catch (fetchErr) {
-      // file://からのブロック対策: XMLHttpRequestでリトライ
-      res = await new Promise((resolve, reject) => {
-        const xhr = new XMLHttpRequest();
-        xhr.open('POST', endpoint, true);
-        xhr.setRequestHeader('Content-Type', 'application/json');
-        xhr.responseType = 'json';
-        xhr.onload = () => resolve({
-          ok: xhr.status >= 200 && xhr.status < 300,
-          status: xhr.status,
-          json: () => Promise.resolve(xhr.response)
-        });
-        xhr.onerror = () => reject(new Error(
-          'ネットワークエラー。APIキーの「HTTPリファラー制限」を解除してください。\n\n' +
-          '手順: Google Cloud Console → APIとサービス → 認証情報 → ' +
-          'お使いのAPIキーをクリック → 「APIキーの制限」→「なし」に変更'
-        ));
-        xhr.send(JSON.stringify({
-          contents: [{
-            parts: [
-              { inline_data: { mime_type: imgMime, data: imgBase64 } },
-              { text: prompt }
-            ]
-          }],
-          generationConfig: { temperature: 0.3, maxOutputTokens: 4096 }
-        }));
-      });
+    } catch (networkErr) {
+      throw new Error('ネットワークエラー: ' + networkErr.message);
     }
 
+    // レスポンス全文を取得してエラー詳細も表示
+    const rawText = await res.text();
     if (!res.ok) {
-      const err = await res.json().catch(() => ({}));
-      throw new Error(err.error?.message || `APIエラー ${res.status}`);
+      let apiMsg = rawText;
+      try { apiMsg = JSON.parse(rawText).error?.message || rawText; } catch {}
+      throw new Error(`HTTP ${res.status}: ${apiMsg}`);
     }
 
     loadingLabel.textContent = '結果を処理中...';
-    const data = await res.json();
+    let data;
+    try { data = JSON.parse(rawText); } catch { throw new Error('レスポンスのパースに失敗: ' + rawText.slice(0, 200)); }
+
     const text = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+    if (!text) throw new Error('Geminiから空のレスポンスが返りました。画像を小さくして再試行してください。');
 
     let parsed;
     try {
@@ -794,7 +772,7 @@ async function analyze() {
     } catch {
       const m = text.match(/\{[\s\S]*\}/);
       if (m) parsed = JSON.parse(m[0]);
-      else throw new Error('解析に失敗しました。もう一度お試しください。');
+      else throw new Error('JSON解析失敗。Geminiの返答: ' + text.slice(0, 300));
     }
 
     const items   = parsed.items || (Array.isArray(parsed) ? parsed : []);
@@ -899,22 +877,7 @@ function saveJson(i) {
 
 // ── Utilities ─────────────────────────────────────────────────
 function showError(msg) {
-  // リファラーエラーの場合は解決手順を表示
-  const isRefererError = msg.includes('referer') || msg.includes('Referer') || msg.includes('リファラー') || msg.includes('blocked');
-  if (isRefererError) {
-    errorCard.innerHTML = `
-      <div style="font-weight:bold;margin-bottom:8px;">⚠️ APIキーの制限エラー</div>
-      <div style="margin-bottom:10px;">ローカルファイルからのアクセスがブロックされています。以下の手順でAPIキーの制限を解除してください。</div>
-      <div style="background:rgba(0,0,0,0.3);border-radius:8px;padding:12px;line-height:1.9;font-size:10px;">
-        1. <a href="https://console.cloud.google.com/apis/credentials" target="_blank" style="color:#F59090;">Google Cloud Console</a> を開く<br>
-        2. 「APIとサービス」→「認証情報」をクリック<br>
-        3. 使用中のAPIキーをクリック<br>
-        4.「アプリケーションの制限」→「<b>なし</b>」を選択<br>
-        5. 「保存」して数分待ってから再試行
-      </div>`;
-  } else {
-    errorCard.innerHTML = `⚠️ ${msg}`;
-  }
+  errorCard.innerHTML = `<div style="font-weight:bold;margin-bottom:6px;">⚠️ エラーが発生しました</div><div style="word-break:break-all;">${msg}</div>`;
   errorCard.classList.add('show');
 }
 function hideError() { errorCard.classList.remove('show'); }

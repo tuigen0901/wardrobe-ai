@@ -1,0 +1,934 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#1A1A18">
+<title>WARDROBE AI</title>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;1,300&family=DM+Mono:wght@300;400&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg: #111110;
+  --surface: #1C1C1A;
+  --surface2: #242422;
+  --border: rgba(255,255,255,0.08);
+  --cream: #F0EBE0;
+  --muted: #7A7570;
+  --accent: #D4874A;
+  --accent-dim: rgba(212,135,74,0.15);
+  --green: #4CAF7D;
+  --red: #E05C5C;
+  --r: 12px;
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+html, body {
+  height: 100%;
+  background: var(--bg);
+  color: var(--cream);
+  font-family: 'DM Mono', monospace;
+  -webkit-tap-highlight-color: transparent;
+  -webkit-font-smoothing: antialiased;
+  overscroll-behavior: none;
+}
+
+/* ── LAYOUT ── */
+.app {
+  display: flex;
+  flex-direction: column;
+  min-height: 100dvh;
+}
+
+/* ── TOP BAR ── */
+.topbar {
+  position: sticky; top: 0; z-index: 50;
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 16px 20px;
+  background: rgba(17,17,16,0.92);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-bottom: 1px solid var(--border);
+}
+.logo {
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 20px;
+  letter-spacing: 0.1em;
+  color: var(--cream);
+}
+.logo em { color: var(--accent); font-style: italic; }
+.free-pill {
+  font-size: 9px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  padding: 4px 10px;
+  background: rgba(76,175,125,0.15);
+  color: var(--green);
+  border-radius: 20px;
+  border: 1px solid rgba(76,175,125,0.3);
+}
+
+/* ── SCROLL BODY ── */
+.scroll-body {
+  flex: 1;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  padding: 20px 16px calc(100px + var(--safe-bottom)) 16px;
+}
+
+/* ── SECTION LABEL ── */
+.section-label {
+  font-size: 9px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 8px;
+}
+
+/* ── API KEY CARD ── */
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+  padding: 16px;
+  margin-bottom: 14px;
+}
+.api-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.api-input {
+  flex: 1;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 12px 14px;
+  font-family: 'DM Mono', monospace;
+  font-size: 13px;
+  color: var(--cream);
+  outline: none;
+  min-width: 0;
+  transition: border-color 0.2s;
+  -webkit-appearance: none;
+}
+.api-input:focus { border-color: var(--accent); }
+.api-input::placeholder { color: var(--muted); font-size: 12px; }
+.api-toggle {
+  width: 40px; height: 40px;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer;
+  flex-shrink: 0;
+  font-size: 16px;
+  transition: background 0.2s;
+  -webkit-user-select: none;
+}
+.api-toggle:active { background: var(--surface); }
+.api-hint-link {
+  display: block;
+  margin-top: 10px;
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  color: var(--accent);
+  text-decoration: none;
+  text-align: center;
+}
+.api-status {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 10px;
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  color: var(--muted);
+}
+.status-dot {
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  background: var(--muted);
+  flex-shrink: 0;
+}
+.status-dot.ok { background: var(--green); }
+
+/* ── IMAGE CARD ── */
+.image-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+  overflow: hidden;
+  margin-bottom: 14px;
+  position: relative;
+}
+.image-card.empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 220px;
+  cursor: pointer;
+  transition: border-color 0.2s, background 0.2s;
+  border-style: dashed;
+}
+.image-card.empty:active { background: var(--surface2); border-color: var(--accent); }
+
+.upload-icon {
+  width: 52px; height: 52px;
+  background: var(--surface2);
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 22px;
+  margin-bottom: 14px;
+}
+.upload-label {
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 20px;
+  font-weight: 300;
+  color: var(--cream);
+  margin-bottom: 6px;
+}
+.upload-sub {
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--muted);
+  text-align: center;
+}
+
+/* camera / gallery buttons */
+.upload-buttons {
+  display: flex;
+  gap: 10px;
+  padding: 14px;
+  border-top: 1px solid var(--border);
+}
+.upload-btn {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 13px 10px;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  font-family: 'DM Mono', monospace;
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--cream);
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+  -webkit-user-select: none;
+}
+.upload-btn:active { background: var(--accent-dim); border-color: var(--accent); }
+.upload-btn .btn-icon { font-size: 18px; }
+
+/* preview */
+.preview-area { position: relative; }
+.preview-img {
+  width: 100%;
+  max-height: 340px;
+  object-fit: cover;
+  display: block;
+}
+.preview-overlay {
+  position: absolute;
+  bottom: 0; left: 0; right: 0;
+  background: linear-gradient(transparent, rgba(0,0,0,0.7));
+  padding: 20px 14px 14px;
+  display: flex;
+  justify-content: flex-end;
+}
+.retake-btn {
+  padding: 7px 16px;
+  background: rgba(255,255,255,0.15);
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(255,255,255,0.2);
+  border-radius: 20px;
+  font-family: 'DM Mono', monospace;
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #fff;
+  cursor: pointer;
+}
+
+#fileCamera, #fileGallery, #fileRetake { display: none; }
+
+/* ── FIXED BOTTOM BTN ── */
+.bottom-action {
+  position: fixed;
+  bottom: 0; left: 0; right: 0;
+  padding: 12px 16px calc(12px + var(--safe-bottom));
+  background: rgba(17,17,16,0.96);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-top: 1px solid var(--border);
+  z-index: 40;
+}
+.analyze-btn {
+  width: 100%;
+  padding: 16px;
+  background: var(--accent);
+  border: none;
+  border-radius: 12px;
+  font-family: 'DM Mono', monospace;
+  font-size: 13px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: #fff;
+  cursor: pointer;
+  transition: opacity 0.2s, transform 0.1s;
+  position: relative;
+  overflow: hidden;
+}
+.analyze-btn:active { transform: scale(0.98); opacity: 0.9; }
+.analyze-btn:disabled {
+  background: var(--surface2);
+  color: var(--muted);
+  cursor: not-allowed;
+}
+.analyze-btn:disabled:active { transform: none; }
+
+/* ── LOADING ── */
+.loading-card {
+  display: none;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+  padding: 24px 20px;
+  margin-bottom: 14px;
+  text-align: center;
+}
+.loading-card.show { display: block; }
+.spinner {
+  width: 36px; height: 36px;
+  border: 2px solid var(--border);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spin 0.9s linear infinite;
+  margin: 0 auto 16px;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+.loading-label {
+  font-size: 11px;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.loading-progress {
+  margin-top: 16px;
+  height: 2px;
+  background: var(--border);
+  border-radius: 1px;
+  overflow: hidden;
+}
+.loading-bar {
+  height: 100%;
+  background: var(--accent);
+  border-radius: 1px;
+  animation: prog 2s ease-in-out infinite;
+}
+@keyframes prog {
+  0%   { width: 0%; margin-left: 0%; }
+  50%  { width: 60%; margin-left: 20%; }
+  100% { width: 0%; margin-left: 100%; }
+}
+
+/* ── ERROR ── */
+.error-card {
+  display: none;
+  background: rgba(224,92,92,0.1);
+  border: 1px solid rgba(224,92,92,0.3);
+  border-radius: var(--r);
+  padding: 14px 16px;
+  margin-bottom: 14px;
+  font-size: 12px;
+  color: #F59090;
+  line-height: 1.6;
+  letter-spacing: 0.04em;
+}
+.error-card.show { display: block; }
+
+/* ── RESULTS ── */
+.results-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-bottom: 14px;
+}
+.results-title {
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 24px;
+  font-weight: 300;
+}
+.results-badge {
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  color: var(--muted);
+  text-transform: uppercase;
+}
+
+/* ITEM CARD */
+.item-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+  overflow: hidden;
+  margin-bottom: 12px;
+  opacity: 0;
+  transform: translateY(12px);
+  animation: rise 0.4s ease forwards;
+}
+@keyframes rise { to { opacity:1; transform:translateY(0); } }
+
+.item-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--border);
+}
+.item-num { font-size: 9px; letter-spacing: 0.2em; color: var(--muted); text-transform: uppercase; }
+.item-cat {
+  font-size: 9px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  padding: 3px 10px;
+  background: var(--accent-dim);
+  color: var(--accent);
+  border-radius: 20px;
+  border: 1px solid rgba(212,135,74,0.3);
+}
+
+.item-name {
+  padding: 14px 14px 4px;
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 22px;
+  font-weight: 300;
+  line-height: 1.2;
+}
+
+/* attrs */
+.item-attrs { padding: 8px 14px 4px; }
+.attr {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 7px 0;
+  border-bottom: 1px solid rgba(255,255,255,0.04);
+}
+.attr:last-child { border-bottom: none; }
+.attr-k {
+  font-size: 9px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--muted);
+  flex-shrink: 0;
+  padding-top: 1px;
+}
+.attr-v {
+  font-size: 11px;
+  color: rgba(240,235,224,0.8);
+  text-align: right;
+  line-height: 1.5;
+}
+.attr-v.orange { color: var(--accent); }
+
+.item-desc {
+  padding: 10px 14px;
+  font-size: 11px;
+  color: rgba(240,235,224,0.6);
+  line-height: 1.75;
+  letter-spacing: 0.03em;
+  border-top: 1px solid rgba(255,255,255,0.04);
+}
+
+.item-tip {
+  padding: 10px 14px;
+  font-size: 11px;
+  color: var(--accent);
+  line-height: 1.75;
+  background: var(--accent-dim);
+  border-top: 1px solid rgba(212,135,74,0.15);
+}
+
+.item-actions {
+  display: flex;
+  gap: 0;
+  border-top: 1px solid var(--border);
+}
+.item-action-btn {
+  flex: 1;
+  padding: 13px 10px;
+  background: transparent;
+  border: none;
+  font-family: 'DM Mono', monospace;
+  font-size: 9px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--muted);
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+  -webkit-user-select: none;
+}
+.item-action-btn + .item-action-btn { border-left: 1px solid var(--border); }
+.item-action-btn:active { background: var(--surface2); color: var(--cream); }
+.item-action-btn.primary { color: var(--accent); }
+.item-action-btn.primary:active { background: var(--accent-dim); }
+
+/* SUMMARY */
+.summary-card {
+  background: linear-gradient(135deg, var(--surface2), var(--surface));
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+  padding: 20px;
+  margin-bottom: 12px;
+  display: none;
+}
+.summary-card.show { display: block; }
+.summary-head {
+  font-size: 9px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--accent);
+  margin-bottom: 10px;
+}
+.summary-body {
+  font-size: 12px;
+  line-height: 1.8;
+  color: rgba(240,235,224,0.75);
+  letter-spacing: 0.03em;
+}
+
+/* TOAST */
+.toast {
+  position: fixed;
+  bottom: calc(90px + var(--safe-bottom));
+  left: 50%;
+  transform: translateX(-50%) translateY(10px);
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  padding: 10px 20px;
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  color: var(--cream);
+  white-space: nowrap;
+  z-index: 200;
+  opacity: 0;
+  transition: opacity 0.25s, transform 0.25s;
+  pointer-events: none;
+}
+.toast.show {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
+</style>
+</head>
+<body>
+<div class="app">
+
+  <!-- TOP BAR -->
+  <div class="topbar">
+    <div class="logo">WARDROBE <em>AI</em></div>
+    <div class="free-pill">Gemini 無料</div>
+  </div>
+
+  <!-- SCROLL BODY -->
+  <div class="scroll-body" id="scrollBody">
+
+    <!-- API KEY -->
+    <div class="section-label">API設定</div>
+    <div class="card">
+      <div class="api-row">
+        <input
+          type="password"
+          id="apiKey"
+          class="api-input"
+          placeholder="Gemini API Key (AIza...)"
+          autocomplete="off"
+          inputmode="text"
+        />
+        <div class="api-toggle" id="apiToggle" title="表示切替">👁</div>
+      </div>
+      <div class="api-status">
+        <div class="status-dot" id="statusDot"></div>
+        <span id="statusText">APIキーを入力してください</span>
+      </div>
+      <a class="api-hint-link" href="https://aistudio.google.com/app/apikey" target="_blank">
+        → Google AI Studio で無料取得
+      </a>
+    </div>
+
+    <!-- IMAGE -->
+    <div class="section-label">写真を選択</div>
+    <div class="image-card" id="imageCard">
+
+      <!-- empty state -->
+      <div id="emptyState" style="display:flex; flex-direction:column; align-items:center; justify-content:center; min-height:200px; padding:28px 20px;">
+        <div class="upload-icon">📷</div>
+        <div class="upload-label">写真を選ぶ</div>
+        <div class="upload-sub">服・コーデの写真をアップロード</div>
+      </div>
+
+      <!-- buttons -->
+      <div class="upload-buttons">
+        <label class="upload-btn" for="fileCamera">
+          <span class="btn-icon">📸</span>カメラ
+        </label>
+        <label class="upload-btn" for="fileGallery">
+          <span class="btn-icon">🖼️</span>ギャラリー
+        </label>
+      </div>
+
+      <!-- preview -->
+      <div class="preview-area" id="previewArea" style="display:none;">
+        <img id="previewImg" class="preview-img" alt="preview"/>
+        <div class="preview-overlay">
+          <label class="retake-btn" for="fileRetake">変更する</label>
+        </div>
+      </div>
+
+      <input type="file" id="fileCamera"  accept="image/*" capture="environment">
+      <input type="file" id="fileGallery" accept="image/*">
+      <input type="file" id="fileRetake"  accept="image/*">
+    </div>
+
+    <!-- LOADING -->
+    <div class="loading-card" id="loadingCard">
+      <div class="spinner"></div>
+      <div class="loading-label" id="loadingLabel">Gemini で解析中...</div>
+      <div class="loading-progress"><div class="loading-bar"></div></div>
+    </div>
+
+    <!-- ERROR -->
+    <div class="error-card" id="errorCard"></div>
+
+    <!-- RESULTS -->
+    <div id="resultsArea" style="display:none;">
+      <div class="results-header">
+        <div class="results-title">検出アイテム</div>
+        <div class="results-badge" id="resultsBadge"></div>
+      </div>
+      <div id="itemsList"></div>
+      <div class="summary-card" id="summaryCard">
+        <div class="summary-head">✦ スタイル総評</div>
+        <div class="summary-body" id="summaryBody"></div>
+      </div>
+    </div>
+
+  </div><!-- /scroll-body -->
+
+  <!-- FIXED BOTTOM -->
+  <div class="bottom-action">
+    <button class="analyze-btn" id="analyzeBtn" disabled>解析する</button>
+  </div>
+
+</div><!-- /app -->
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ── Elements ─────────────────────────────────────────────────
+const apiKeyInput  = document.getElementById('apiKey');
+const apiToggle    = document.getElementById('apiToggle');
+const statusDot    = document.getElementById('statusDot');
+const statusText   = document.getElementById('statusText');
+const fileCamera   = document.getElementById('fileCamera');
+const fileGallery  = document.getElementById('fileGallery');
+const fileRetake   = document.getElementById('fileRetake');
+const emptyState   = document.getElementById('emptyState');
+const previewArea  = document.getElementById('previewArea');
+const previewImg   = document.getElementById('previewImg');
+const analyzeBtn   = document.getElementById('analyzeBtn');
+const loadingCard  = document.getElementById('loadingCard');
+const loadingLabel = document.getElementById('loadingLabel');
+const errorCard    = document.getElementById('errorCard');
+const resultsArea  = document.getElementById('resultsArea');
+const resultsBadge = document.getElementById('resultsBadge');
+const itemsList    = document.getElementById('itemsList');
+const summaryCard  = document.getElementById('summaryCard');
+const summaryBody  = document.getElementById('summaryBody');
+const scrollBody   = document.getElementById('scrollBody');
+const toastEl      = document.getElementById('toast');
+
+let imgBase64 = null;
+let imgMime   = null;
+let analyzing = false;
+
+// ── API Key ───────────────────────────────────────────────────
+apiToggle.addEventListener('click', () => {
+  const isPass = apiKeyInput.type === 'password';
+  apiKeyInput.type = isPass ? 'text' : 'password';
+  apiToggle.textContent = isPass ? '🙈' : '👁';
+});
+
+apiKeyInput.addEventListener('input', updateStatus);
+
+function updateStatus() {
+  const key = apiKeyInput.value.trim();
+  const ok = key.startsWith('AIza') && key.length > 20;
+  statusDot.className = 'status-dot' + (ok ? ' ok' : '');
+  statusText.textContent = ok ? 'APIキーが設定されました' : 'APIキーを入力してください';
+  checkReady();
+}
+
+// ── File load ─────────────────────────────────────────────────
+function handleFile(file) {
+  if (!file || !file.type.startsWith('image/')) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    const dataUrl = e.target.result;
+    imgBase64 = dataUrl.split(',')[1];
+    imgMime   = file.type;
+    previewImg.src = dataUrl;
+    emptyState.style.display = 'none';
+    previewArea.style.display = 'block';
+    checkReady();
+  };
+  reader.readAsDataURL(file);
+}
+
+fileCamera.addEventListener('change',  e => handleFile(e.target.files[0]));
+fileGallery.addEventListener('change', e => handleFile(e.target.files[0]));
+fileRetake.addEventListener('change',  e => handleFile(e.target.files[0]));
+
+function checkReady() {
+  const key = apiKeyInput.value.trim();
+  analyzeBtn.disabled = analyzing || !(imgBase64 && key.startsWith('AIza') && key.length > 20);
+}
+
+// ── Analyze ───────────────────────────────────────────────────
+analyzeBtn.addEventListener('click', analyze);
+
+async function analyze() {
+  if (analyzing) return;
+  analyzing = true;
+  analyzeBtn.disabled = true;
+  analyzeBtn.textContent = '解析中...';
+
+  hideError();
+  resultsArea.style.display = 'none';
+  loadingCard.classList.add('show');
+  loadingLabel.textContent = '画像を送信中...';
+
+  const prompt = `あなたはファッション専門のAIアシスタントです。
+この写真に写っている服・ファッションアイテムをすべて個別に識別・分析してください。
+
+以下のJSON形式のみを返してください（コードブロック不要、他テキスト不要）：
+
+{"items":[{"id":1,"name":"アイテム名（日本語）","category":"カテゴリ（トップス/ボトムス/アウター/シューズ/バッグ/アクセサリー/ドレス/その他）","color":"色・カラーパターン","material":"素材（推定）","style":"スタイル特徴","brand_hint":"ブランド候補またはnull","condition":"状態","correction_notes":"しわ・隠れ部分の補正ポイントまたはnull","description":"詳細説明（2〜3文）","styling_tip":"スタイリングアドバイス"}],"overall_summary":"全体のスタイル総評"}`;
+
+  try {
+    const apiKey = apiKeyInput.value.trim();
+    loadingLabel.textContent = 'Gemini 2.0 Flash で解析中...';
+
+    // URLにAPIキーを含める方式（file://環境でも動作）
+    const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${encodeURIComponent(apiKey)}`;
+
+    let res;
+    try {
+      res = await fetch(endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{
+            parts: [
+              { inline_data: { mime_type: imgMime, data: imgBase64 } },
+              { text: prompt }
+            ]
+          }],
+          generationConfig: { temperature: 0.3, maxOutputTokens: 4096 }
+        })
+      });
+    } catch (fetchErr) {
+      // file://からのブロック対策: XMLHttpRequestでリトライ
+      res = await new Promise((resolve, reject) => {
+        const xhr = new XMLHttpRequest();
+        xhr.open('POST', endpoint, true);
+        xhr.setRequestHeader('Content-Type', 'application/json');
+        xhr.responseType = 'json';
+        xhr.onload = () => resolve({
+          ok: xhr.status >= 200 && xhr.status < 300,
+          status: xhr.status,
+          json: () => Promise.resolve(xhr.response)
+        });
+        xhr.onerror = () => reject(new Error(
+          'ネットワークエラー。APIキーの「HTTPリファラー制限」を解除してください。\n\n' +
+          '手順: Google Cloud Console → APIとサービス → 認証情報 → ' +
+          'お使いのAPIキーをクリック → 「APIキーの制限」→「なし」に変更'
+        ));
+        xhr.send(JSON.stringify({
+          contents: [{
+            parts: [
+              { inline_data: { mime_type: imgMime, data: imgBase64 } },
+              { text: prompt }
+            ]
+          }],
+          generationConfig: { temperature: 0.3, maxOutputTokens: 4096 }
+        }));
+      });
+    }
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error?.message || `APIエラー ${res.status}`);
+    }
+
+    loadingLabel.textContent = '結果を処理中...';
+    const data = await res.json();
+    const text = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+
+    let parsed;
+    try {
+      parsed = JSON.parse(text.replace(/```json|```/g, '').trim());
+    } catch {
+      const m = text.match(/\{[\s\S]*\}/);
+      if (m) parsed = JSON.parse(m[0]);
+      else throw new Error('解析に失敗しました。もう一度お試しください。');
+    }
+
+    const items   = parsed.items || (Array.isArray(parsed) ? parsed : []);
+    const summary = parsed.overall_summary || null;
+    renderResults(items, summary);
+
+  } catch (err) {
+    showError(err.message);
+  } finally {
+    analyzing = false;
+    loadingCard.classList.remove('show');
+    analyzeBtn.textContent = '解析する';
+    checkReady();
+  }
+}
+
+// ── Render ────────────────────────────────────────────────────
+function renderResults(items, summary) {
+  window._items = items;
+  itemsList.innerHTML = '';
+  resultsBadge.textContent = `${items.length}点`;
+  resultsArea.style.display = 'block';
+
+  items.forEach((item, i) => {
+    const card = document.createElement('div');
+    card.className = 'item-card';
+    card.style.animationDelay = `${i * 0.07}s`;
+
+    const attrRows = [
+      ['色',      item.color],
+      ['素材',    item.material],
+      ['スタイル', item.style],
+      ['ブランド', item.brand_hint || '—'],
+      ['状態',    item.condition  || '—'],
+    ].filter(([,v]) => v).map(([k, v]) =>
+      `<div class="attr"><span class="attr-k">${k}</span><span class="attr-v">${v}</span></div>`
+    ).join('');
+
+    const corrRow = item.correction_notes
+      ? `<div class="attr"><span class="attr-k">補正</span><span class="attr-v orange">${item.correction_notes}</span></div>`
+      : '';
+
+    const tip = item.styling_tip
+      ? `<div class="item-tip">💡 ${item.styling_tip}</div>`
+      : '';
+
+    card.innerHTML = `
+      <div class="item-top">
+        <span class="item-num">ITEM ${String(item.id).padStart(2,'0')}</span>
+        <span class="item-cat">${item.category || 'その他'}</span>
+      </div>
+      <div class="item-name">${item.name}</div>
+      <div class="item-attrs">${attrRows}${corrRow}</div>
+      ${item.description ? `<div class="item-desc">${item.description}</div>` : ''}
+      ${tip}
+      <div class="item-actions">
+        <button class="item-action-btn" onclick="copyInfo(${i})">📋 コピー</button>
+        <button class="item-action-btn primary" onclick="saveJson(${i})">💾 JSON保存</button>
+      </div>
+    `;
+    itemsList.appendChild(card);
+  });
+
+  if (summary) {
+    summaryBody.textContent = summary;
+    summaryCard.classList.add('show');
+  } else {
+    summaryCard.classList.remove('show');
+  }
+
+  setTimeout(() => {
+    resultsArea.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }, 100);
+}
+
+// ── Export ────────────────────────────────────────────────────
+function copyInfo(i) {
+  const item = window._items[i];
+  const text = Object.entries(item).map(([k,v]) => `${k}: ${v}`).join('\n');
+  if (navigator.clipboard) {
+    navigator.clipboard.writeText(text).then(() => showToast('コピーしました ✓'));
+  } else {
+    const ta = document.createElement('textarea');
+    ta.value = text;
+    document.body.appendChild(ta);
+    ta.select();
+    document.execCommand('copy');
+    document.body.removeChild(ta);
+    showToast('コピーしました ✓');
+  }
+}
+
+function saveJson(i) {
+  const item = window._items[i];
+  const blob = new Blob([JSON.stringify(item, null, 2)], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `item_${String(item.id).padStart(2,'0')}_${item.name}.json`;
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+
+// ── Utilities ─────────────────────────────────────────────────
+function showError(msg) {
+  // リファラーエラーの場合は解決手順を表示
+  const isRefererError = msg.includes('referer') || msg.includes('Referer') || msg.includes('リファラー') || msg.includes('blocked');
+  if (isRefererError) {
+    errorCard.innerHTML = `
+      <div style="font-weight:bold;margin-bottom:8px;">⚠️ APIキーの制限エラー</div>
+      <div style="margin-bottom:10px;">ローカルファイルからのアクセスがブロックされています。以下の手順でAPIキーの制限を解除してください。</div>
+      <div style="background:rgba(0,0,0,0.3);border-radius:8px;padding:12px;line-height:1.9;font-size:10px;">
+        1. <a href="https://console.cloud.google.com/apis/credentials" target="_blank" style="color:#F59090;">Google Cloud Console</a> を開く<br>
+        2. 「APIとサービス」→「認証情報」をクリック<br>
+        3. 使用中のAPIキーをクリック<br>
+        4.「アプリケーションの制限」→「<b>なし</b>」を選択<br>
+        5. 「保存」して数分待ってから再試行
+      </div>`;
+  } else {
+    errorCard.innerHTML = `⚠️ ${msg}`;
+  }
+  errorCard.classList.add('show');
+}
+function hideError() { errorCard.classList.remove('show'); }
+
+let toastTimer;
+function showToast(msg) {
+  clearTimeout(toastTimer);
+  toastEl.textContent = msg;
+  toastEl.classList.add('show');
+  toastTimer = setTimeout(() => toastEl.classList.remove('show'), 2200);
+}
+
+// init
+updateStatus();
+</script>
+</body>
+</html>
